@@ -47,6 +47,7 @@ description: 基于 GitCode 仓库真实数据生成高质量 Release Note。优
 - 在 macOS 自带 Bash 3.2 + `python3` 环境中也应可运行
 - 如果用户手动以 `zsh scripts/fetch_release_context.sh` 方式执行，建议改为 `bash scripts/fetch_release_context.sh` 或直接 `./scripts/fetch_release_context.sh`
 - 脚本会输出进度日志，并在产物缺失时直接报错，便于定位抓取失败阶段
+- 抓取过程会先写入临时目录，成功后再原子替换目标目录，避免重复生成同一路径时读到半成品
 
 抓取结果会落在指定目录下，包含：
 
