@@ -2,7 +2,7 @@
 
 面向 OpenCode、Codex、Claude Code 等 Agent 的 GitCode 仓库 Release Note 生成 Skill。
 
-提供 GitCode 仓库链接、roadmap、版本时间范围和 token，Agent 会自动拉取该时间范围内的 PR、Issue、roadmap、release/tag 与仓库文档数据，按标准模板生成结构化的 Release Note Markdown 文件。
+提供 GitCode 仓库链接、roadmap、版本时间范围和 token，即可生成基于真实仓库数据整理的 Release Note Markdown 文件。
 
 适合需要基于真实 GitCode 仓库数据快速输出版本发布说明的开发者。
 
@@ -44,7 +44,7 @@ npx skills add kali20gakki/gitcode-release-note-generator --skill gitcode-releas
 export GITCODE_TOKEN=<your-gitcode-token>
 ```
 
-Token 需要至少拥有 `pull_requests` 和 `issues` 读取权限。未显式传 `--token` 时，脚本会尝试读取环境变量 `GITCODE_TOKEN`。
+Token 需要至少拥有 `pull_requests` 和 `issues` 读取权限。未显式传 `--token` 时，会尝试读取环境变量 `GITCODE_TOKEN`。
 
 ### 3. 直接使用
 
@@ -108,8 +108,7 @@ token：xxx
 - 自动拉取 GitCode 仓库指定时间范围内的 **Issues** 和 **Pull Requests**
 - 读取 **Roadmap Issue**、**README**、安装说明等内容，提取版本亮点、产品定位与部分配套关系
 - 读取 **Release/Tag** 信息，尽量补齐发布日期与版本标签
-- 按标签、标题与正文关键词自动分类：新增特性、变更说明、修复缺陷、已知问题
-- 对同一主题的多条 PR/Issue 进行归并，优先输出更接近正式发布说明的主题条目
+- 对同一主题的多条 PR/Issue 做聚合归并，优先输出更接近正式发布说明的主题条目
 - 严格遵循 `assets/release-note-template.md` 结构输出 Markdown
 - 提取贡献者信息并生成致谢表格
 
@@ -146,7 +145,7 @@ token：xxx
 
 ## ⚠️ 重要提醒
 
-Skill 生成的是 **可交付初稿**，但仍建议做一次人工审查：
+生成结果仍建议做一次人工审查：
 
 - **版本概述**：检查场景描述、版本标签与亮点是否符合正式发布口径
 - **配套关系**：补齐仓库文档中未声明的软硬件版本要求
