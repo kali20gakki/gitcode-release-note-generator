@@ -19,8 +19,6 @@ venv/
 .venv/
 pip-log.txt
 
-# Output files (generated release notes)
-*-release-note.md
 
 # Kimi / OMX
 .omx/
