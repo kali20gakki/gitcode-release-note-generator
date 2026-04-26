@@ -5,7 +5,7 @@ description: 自动生成GitCode仓库指定版本的Release Note Markdown文件
 
 # GitCode Release Note Generator
 
-自动生成GitCode仓库指定版本的release note。
+自动生成 GitCode 仓库指定版本的 release note，并尽量自动补齐版本概述、配套关系、特性描述、变更影响与缺陷影响范围。
 
 ## 使用流程
 
@@ -19,7 +19,7 @@ description: 自动生成GitCode仓库指定版本的Release Note Markdown文件
 | `--repo` / `-r` | 是 | 仓库链接，如 `https://gitcode.com/owner/repo` |
 | `--roadmap` / `-m` | 是 | Roadmap issue链接 |
 | `--time-range` / `-t` | 是 | 版本时间范围 |
-| `--token` / `-k` | 是 | GitCode API Token |
+| `--token` / `-k` | 否 | GitCode API Token；未传时尝试读取 `GITCODE_TOKEN` |
 | `--version` / `-v` | 否 | 版本号（默认从输出文件名推断） |
 | `--release-url` | 否 | Release页面参考链接 |
 
@@ -42,13 +42,20 @@ python3 scripts/generate_release_note.py \
 
 ### 3. 人工审查与补充
 
-脚本生成的是**初稿**，必须人工审查并补充以下内容：
+脚本生成的是**可交付初稿**。当前版本会额外尝试：
 
-- **版本概述**: 补充准确的场景描述和亮点总结
-- **配套关系**: 填写实际的软硬件版本要求
-- **特性描述**: 为每条特性补充用户视角的描述
-- **变更影响**: 为变更说明补充具体影响，标注不兼容变更
-- **影响范围**: 为缺陷修复补充影响范围
+- 从 roadmap、README、安装文档中提取版本亮点与产品定位
+- 自动补齐配套关系中的常见字段，如操作系统、CANN、Python、PyTorch、三方依赖
+- 为新增特性、变更说明、修复缺陷生成用户视角的描述
+- 通过 release/tag 信息补充发布日期与版本标签
+
+仍建议人工重点复核以下内容：
+
+- **版本概述**: 检查场景定位与版本亮点是否贴合产品口径
+- **配套关系**: 检查仓库未声明或抽取不完整的软硬件版本要求
+- **特性描述**: 检查自动生成的描述是否足够准确、是否需要更产品化表达
+- **变更影响**: 检查是否存在需要显式标注的兼容性影响
+- **影响范围**: 检查缺陷修复的适用范围是否足够准确
 - **已知问题**: 检查是否有遗漏的已知问题
 - **分类调整**: 检查PR/Issue是否被正确分类到特性/变更/缺陷
 
@@ -58,8 +65,8 @@ python3 scripts/generate_release_note.py \
 
 | 分类 | 触发条件 |
 | ---- | -------- |
-| 新增特性 | 标签含 `feature`/`enhancement`/`新特性`/`需求`，或标题含 `新增`/`支持`/`添加` |
-| 变更说明 | 标签含 `change`/`变更`/`调整`/`修改`，或其他未分类的PR |
+| 新增特性 | 标签含 `feature`/`enhancement`/`新特性`/`需求`，或标题含 `新增`/`支持`/`添加`/`实现` |
+| 变更说明 | 标签含 `change`/`变更`/`调整`/`修改`/`refactor`，或其他未分类的 PR/Issue |
 | 不兼容变更 | 标签含 `breaking-change`/`不兼容`，或标题含 `不兼容`/`breaking`/`移除`/`废弃` |
 | 修复缺陷 | 标签含 `bug`/`bug-report`/`缺陷`，或标题含 `修复`/`fix`/`bug`/`解决` |
 | 已知问题 | 标签含 `known-issue`/`已知问题` |
@@ -85,3 +92,4 @@ GitCode API详细信息见 `references/gitcode-api.md`。
 - Issues: `GET /api/v5/repos/{owner}/{repo}/issues`
 - PRs: `GET /api/v5/repos/{owner}/{repo}/pulls`
 - Issue详情: `GET /api/v5/repos/{owner}/{repo}/issues/{number}`
+- Releases: `GET /api/v5/repos/{owner}/{repo}/releases`
