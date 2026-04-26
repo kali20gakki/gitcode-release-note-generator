@@ -319,6 +319,11 @@ def ensure_nonempty(path: Path) -> None:
         raise FetchError(f"Expected non-empty file was not created: {path}")
 
 
+def ensure_exists(path: Path) -> None:
+    if not path.exists():
+        raise FetchError(f"Expected file was not created: {path}")
+
+
 def replace_output_dir(staging_dir: Path, final_dir: Path) -> None:
     final_dir.parent.mkdir(parents=True, exist_ok=True)
     backup_dir = final_dir.parent / f".{final_dir.name}.backup"
@@ -523,12 +528,19 @@ def main() -> None:
             raw_dir / "repo.json",
             raw_dir / "roadmap.json",
             raw_dir / "detail-index.txt",
-            raw_dir / "issue-numbers.txt",
-            raw_dir / "pr-numbers.txt",
-            issue_detail_dir / "index.txt",
-            pr_detail_dir / "index.txt",
         ]:
             ensure_nonempty(required)
+
+        for required in [
+            raw_dir / "issue-numbers.txt",
+            raw_dir / "pr-numbers.txt",
+            raw_dir / "roadmap-linked-issue-numbers.txt",
+            raw_dir / "roadmap-linked-pr-numbers.txt",
+            issue_detail_dir / "index.txt",
+            pr_detail_dir / "index.txt",
+            docs_dir / "index.txt",
+        ]:
+            ensure_exists(required)
 
         replace_output_dir(staging_dir, final_output_dir)
         log("Fetch completed successfully.", quiet=args.quiet, log_file=final_output_dir / "fetch.log")
