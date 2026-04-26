@@ -101,6 +101,26 @@ quarter_range() {
   esac
 }
 
+days_in_month() {
+  local year="$1"
+  local month="$2"
+  case "$month" in
+    01|03|05|07|08|10|12) printf '31\n' ;;
+    04|06|09|11) printf '30\n' ;;
+    02)
+      if (( (year % 4 == 0 && year % 100 != 0) || year % 400 == 0 )); then
+        printf '29\n'
+      else
+        printf '28\n'
+      fi
+      ;;
+    *)
+      echo "Unsupported month: $month" >&2
+      exit 1
+      ;;
+  esac
+}
+
 parse_time_range() {
   local value="$1"
   if [[ "$value" =~ ^([0-9]{4})Q([1-4])$ ]]; then
@@ -110,29 +130,9 @@ parse_time_range() {
   if [[ "$value" =~ ^([0-9]{4})-([0-9]{2})$ ]]; then
     local year="${BASH_REMATCH[1]}"
     local month="${BASH_REMATCH[2]}"
-    local next_month next_year
-    next_month=$((10#$month + 1))
-    next_year="$year"
-    if [[ "$next_month" -eq 13 ]]; then
-      next_month=1
-      next_year=$((year + 1))
-    fi
     local start="${year}-${month}-01"
     local end
-    end="$(date -j -v+1m -f "%Y-%m-%d" "${year}-${month}-01" "+%Y-%m-01" 2>/dev/null | xargs -I{} date -j -v-1d -f "%Y-%m-%d" "{}" "+%Y-%m-%d" 2>/dev/null || true)"
-    if [[ -z "$end" ]]; then
-      case "$month" in
-        01|03|05|07|08|10|12) end="${year}-${month}-31" ;;
-        04|06|09|11) end="${year}-${month}-30" ;;
-        02)
-          if (( (year % 4 == 0 && year % 100 != 0) || year % 400 == 0 )); then
-            end="${year}-${month}-29"
-          else
-            end="${year}-${month}-28"
-          fi
-          ;;
-      esac
-    fi
+    end="${year}-${month}-$(days_in_month "$year" "$month")"
     printf '%s\n%s\n' "$start" "$end"
     return
   fi
@@ -146,11 +146,11 @@ parse_time_range() {
 
 read -r OWNER REPO <<<"$(parse_repo_url "$REPO_URL")"
 read -r ROADMAP_OWNER ROADMAP_REPO ROADMAP_NUMBER <<<"$(parse_issue_url "$ROADMAP_URL")"
-mapfile -t RANGE_LINES < <(parse_time_range "$TIME_RANGE")
-START_DATE="${RANGE_LINES[0]}"
-END_DATE="${RANGE_LINES[1]}"
+RANGE_LINES="$(parse_time_range "$TIME_RANGE")"
+START_DATE="$(printf '%s\n' "$RANGE_LINES" | sed -n '1p')"
+END_DATE="$(printf '%s\n' "$RANGE_LINES" | sed -n '2p')"
 
-mkdir -p "$OUTPUT_DIR/raw" "$OUTPUT_DIR/docs"
+mkdir -p "$OUTPUT_DIR/raw" "$OUTPUT_DIR/raw/pr-details" "$OUTPUT_DIR/raw/issue-details" "$OUTPUT_DIR/docs"
 
 curl_json() {
   local url="$1"
@@ -165,13 +165,27 @@ curl_json() {
 curl_text() {
   local url="$1"
   local output_file="$2"
-  if ! curl -fsSL \
+  curl -fsSL \
     -H "Authorization: Bearer ${TOKEN}" \
     -H "User-Agent: gitcode-release-note-generator/llm-workflow" \
     "$url" \
-    -o "$output_file"; then
-    rm -f "$output_file"
-  fi
+    -o "$output_file"
+}
+
+fetch_first_text() {
+  local output_file="$1"
+  shift
+  local url
+  local tmp_file
+  tmp_file="$(mktemp)"
+  for url in "$@"; do
+    if curl_text "$url" "$tmp_file" 2>/dev/null; then
+      mv "$tmp_file" "$output_file"
+      return 0
+    fi
+  done
+  rm -f "$tmp_file"
+  return 1
 }
 
 fetch_paginated() {
@@ -209,6 +223,32 @@ fetch_paginated() {
   printf '\n]\n' >> "$output_file"
 }
 
+extract_numbers() {
+  local json_file="$1"
+  grep -Eo '"number"[[:space:]]*:[[:space:]]*[0-9]+' "$json_file" \
+    | sed -E 's/.*:[[:space:]]*([0-9]+)/\1/' \
+    | awk '!seen[$0]++'
+}
+
+fetch_detail_set() {
+  local kind="$1"
+  local numbers_file="$2"
+  local detail_dir="$3"
+  local api_path="$4"
+  local index_file="$5"
+  local number
+  : > "$index_file"
+  while IFS= read -r number; do
+    [[ -z "$number" ]] && continue
+    local output_file="${detail_dir}/${kind}-${number}.json"
+    if curl_json "${BASE_API}/${api_path}/${number}" "$output_file"; then
+      printf '%s\t%s\n' "$number" "$output_file" >> "$index_file"
+    else
+      rm -f "$output_file"
+    fi
+  done < "$numbers_file"
+}
+
 BASE_API="https://api.gitcode.com/api/v5/repos/${OWNER}/${REPO}"
 
 fetch_paginated "${BASE_API}/issues?state=all" "$OUTPUT_DIR/raw/issues.json"
@@ -218,17 +258,32 @@ curl_json "${BASE_API}/releases" "$OUTPUT_DIR/raw/releases.json" || true
 curl_json "${BASE_API}/tags" "$OUTPUT_DIR/raw/tags.json" || true
 curl_json "https://api.gitcode.com/api/v5/repos/${ROADMAP_OWNER}/${ROADMAP_REPO}/issues/${ROADMAP_NUMBER}" "$OUTPUT_DIR/raw/roadmap.json"
 
+extract_numbers "$OUTPUT_DIR/raw/issues.json" > "$OUTPUT_DIR/raw/issue-numbers.txt"
+extract_numbers "$OUTPUT_DIR/raw/pulls.json" > "$OUTPUT_DIR/raw/pr-numbers.txt"
+
+fetch_detail_set "issue" "$OUTPUT_DIR/raw/issue-numbers.txt" "$OUTPUT_DIR/raw/issue-details" "issues" "$OUTPUT_DIR/raw/issue-details/index.txt"
+fetch_detail_set "pr" "$OUTPUT_DIR/raw/pr-numbers.txt" "$OUTPUT_DIR/raw/pr-details" "pulls" "$OUTPUT_DIR/raw/pr-details/index.txt"
+
+if [[ "$ROADMAP_OWNER" == "$OWNER" && "$ROADMAP_REPO" == "$REPO" ]]; then
+  cp "$OUTPUT_DIR/raw/roadmap.json" "$OUTPUT_DIR/raw/issue-details/issue-${ROADMAP_NUMBER}.json"
+fi
+
 RAW_BASE="https://gitcode.com/${OWNER}/${REPO}"
-curl_text "${RAW_BASE}/raw/master/README.md" "$OUTPUT_DIR/docs/README.md"
-curl_text "${RAW_BASE}/-/raw/master/README.md" "$OUTPUT_DIR/docs/README.md"
-curl_text "${RAW_BASE}/raw/master/docs/install.md" "$OUTPUT_DIR/docs/install.md"
-curl_text "${RAW_BASE}/-/raw/master/docs/install.md" "$OUTPUT_DIR/docs/install.md"
-curl_text "${RAW_BASE}/raw/master/docs/quick_start.md" "$OUTPUT_DIR/docs/quick_start.md"
-curl_text "${RAW_BASE}/-/raw/master/docs/quick_start.md" "$OUTPUT_DIR/docs/quick_start.md"
-curl_text "${RAW_BASE}/raw/master/docs/msprof_parsing_instruct.md" "$OUTPUT_DIR/docs/msprof_parsing_instruct.md"
-curl_text "${RAW_BASE}/-/raw/master/docs/msprof_parsing_instruct.md" "$OUTPUT_DIR/docs/msprof_parsing_instruct.md"
-curl_text "${RAW_BASE}/raw/master/docs/msmonitor_parsing_instruct.md" "$OUTPUT_DIR/docs/msmonitor_parsing_instruct.md"
-curl_text "${RAW_BASE}/-/raw/master/docs/msmonitor_parsing_instruct.md" "$OUTPUT_DIR/docs/msmonitor_parsing_instruct.md"
+fetch_first_text "$OUTPUT_DIR/docs/README.md" \
+  "${RAW_BASE}/raw/master/README.md" \
+  "${RAW_BASE}/-/raw/master/README.md" || true
+fetch_first_text "$OUTPUT_DIR/docs/install.md" \
+  "${RAW_BASE}/raw/master/docs/install.md" \
+  "${RAW_BASE}/-/raw/master/docs/install.md" || true
+fetch_first_text "$OUTPUT_DIR/docs/quick_start.md" \
+  "${RAW_BASE}/raw/master/docs/quick_start.md" \
+  "${RAW_BASE}/-/raw/master/docs/quick_start.md" || true
+fetch_first_text "$OUTPUT_DIR/docs/msprof_parsing_instruct.md" \
+  "${RAW_BASE}/raw/master/docs/msprof_parsing_instruct.md" \
+  "${RAW_BASE}/-/raw/master/docs/msprof_parsing_instruct.md" || true
+fetch_first_text "$OUTPUT_DIR/docs/msmonitor_parsing_instruct.md" \
+  "${RAW_BASE}/raw/master/docs/msmonitor_parsing_instruct.md" \
+  "${RAW_BASE}/-/raw/master/docs/msmonitor_parsing_instruct.md" || true
 
 cat > "$OUTPUT_DIR/context-meta.txt" <<EOF
 repo_url=$REPO_URL
@@ -238,6 +293,21 @@ start_date=$START_DATE
 end_date=$END_DATE
 owner=$OWNER
 repo=$REPO
+EOF
+
+cat > "$OUTPUT_DIR/raw/detail-index.txt" <<EOF
+issues_json=$OUTPUT_DIR/raw/issues.json
+pulls_json=$OUTPUT_DIR/raw/pulls.json
+roadmap_json=$OUTPUT_DIR/raw/roadmap.json
+repo_json=$OUTPUT_DIR/raw/repo.json
+releases_json=$OUTPUT_DIR/raw/releases.json
+tags_json=$OUTPUT_DIR/raw/tags.json
+issue_numbers=$OUTPUT_DIR/raw/issue-numbers.txt
+pr_numbers=$OUTPUT_DIR/raw/pr-numbers.txt
+issue_details_dir=$OUTPUT_DIR/raw/issue-details
+pr_details_dir=$OUTPUT_DIR/raw/pr-details
+issue_details_index=$OUTPUT_DIR/raw/issue-details/index.txt
+pr_details_index=$OUTPUT_DIR/raw/pr-details/index.txt
 EOF
 
 echo "Fetched release context into: $OUTPUT_DIR"

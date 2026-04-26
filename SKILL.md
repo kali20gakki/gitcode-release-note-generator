@@ -39,6 +39,13 @@ description: 基于 GitCode 仓库真实数据生成高质量 Release Note。优
   --token <GitCode API Token>
 ```
 
+兼容性说明：
+
+- 脚本使用 `#!/usr/bin/env bash`
+- 已避免依赖 `mapfile`、GNU `date` 等兼容性较差的能力
+- 在 macOS 自带 Bash 3.2 环境中也应可运行
+- 如果用户手动以 `zsh scripts/fetch_release_context.sh` 方式执行，建议改为 `bash scripts/fetch_release_context.sh` 或直接 `./scripts/fetch_release_context.sh`
+
 抓取结果会落在指定目录下，包含：
 
 - `raw/issues.json`
@@ -47,6 +54,13 @@ description: 基于 GitCode 仓库真实数据生成高质量 Release Note。优
 - `raw/repo.json`
 - `raw/releases.json`
 - `raw/tags.json`
+- `raw/issue-numbers.txt`
+- `raw/pr-numbers.txt`
+- `raw/issue-details/issue-<number>.json`
+- `raw/pr-details/pr-<number>.json`
+- `raw/issue-details/index.txt`
+- `raw/pr-details/index.txt`
+- `raw/detail-index.txt`
 - `docs/README.md`
 - `docs/install.md`
 - `docs/quick_start.md`
@@ -66,12 +80,14 @@ description: 基于 GitCode 仓库真实数据生成高质量 Release Note。优
 
 Agent 在执行这一步时，应优先阅读：
 
+- `.release-context/<version>/raw/detail-index.txt`
 - `assets/MindStudio-Profiler-26.0.0-release-note.md`
 - `assets/release-note-agent-prompt.md`
 - `assets/release-note-template.md`
 
 其中：
 
+- `detail-index.txt` 用来快速定位聚合 JSON、编号清单和拆分后的 issue/PR 详情文件
 - `MindStudio-Profiler-26.0.0-release-note.md` 是成品风格参考
 - `release-note-agent-prompt.md` 是建议 Agent 采用的总结提示模板
 - `release-note-template.md` 是章节结构约束
