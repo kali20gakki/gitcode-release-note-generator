@@ -45,6 +45,7 @@ description: 基于 GitCode 仓库真实数据生成高质量 Release Note。优
 - 已避免依赖 `mapfile`、GNU `date` 等兼容性较差的能力
 - 在 macOS 自带 Bash 3.2 环境中也应可运行
 - 如果用户手动以 `zsh scripts/fetch_release_context.sh` 方式执行，建议改为 `bash scripts/fetch_release_context.sh` 或直接 `./scripts/fetch_release_context.sh`
+- 脚本会输出进度日志，并在产物缺失时直接报错，便于定位抓取失败阶段
 
 抓取结果会落在指定目录下，包含：
 
@@ -61,6 +62,7 @@ description: 基于 GitCode 仓库真实数据生成高质量 Release Note。优
 - `raw/issue-details/index.txt`
 - `raw/pr-details/index.txt`
 - `raw/detail-index.txt`
+- `fetch.log`
 - `docs/README.md`
 - `docs/install.md`
 - `docs/quick_start.md`

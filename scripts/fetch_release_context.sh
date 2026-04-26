@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+SCRIPT_NAME="$(basename "$0")"
+VERBOSE=1
+
 usage() {
   cat <<'EOF'
 Usage:
@@ -15,8 +18,31 @@ Notes:
   - If --token is omitted, reads GITCODE_TOKEN from environment.
   - This script only fetches raw context for LLM summarization.
   - It does NOT generate the final release note markdown.
+  - Use --quiet to reduce progress logs.
 EOF
 }
+
+log() {
+  if [[ "${VERBOSE}" -eq 1 ]]; then
+    printf '[%s] %s\n' "$SCRIPT_NAME" "$*" >&2
+  fi
+}
+
+warn() {
+  printf '[%s][warn] %s\n' "$SCRIPT_NAME" "$*" >&2
+}
+
+fatal() {
+  printf '[%s][error] %s\n' "$SCRIPT_NAME" "$*" >&2
+  exit 1
+}
+
+on_error() {
+  local line="$1"
+  fatal "Script failed near line ${line}. Check earlier logs for the failing fetch step."
+}
+
+trap 'on_error $LINENO' ERR
 
 REPO_URL=""
 ROADMAP_URL=""
@@ -46,6 +72,10 @@ while [[ $# -gt 0 ]]; do
       TOKEN="$2"
       shift 2
       ;;
+    --quiet)
+      VERBOSE=0
+      shift
+      ;;
     -h|--help)
       usage
       exit 0
@@ -65,9 +95,12 @@ if [[ -z "$REPO_URL" || -z "$ROADMAP_URL" || -z "$TIME_RANGE" || -z "$OUTPUT_DIR
 fi
 
 if [[ -z "$TOKEN" ]]; then
-  echo "Missing GitCode token. Pass --token or set GITCODE_TOKEN." >&2
-  exit 1
+  fatal "Missing GitCode token. Pass --token or set GITCODE_TOKEN."
 fi
+
+command -v curl >/dev/null 2>&1 || fatal "curl is required but was not found in PATH."
+command -v sed >/dev/null 2>&1 || fatal "sed is required but was not found in PATH."
+command -v awk >/dev/null 2>&1 || fatal "awk is required but was not found in PATH."
 
 parse_repo_url() {
   local url="$1"
@@ -151,10 +184,18 @@ START_DATE="$(printf '%s\n' "$RANGE_LINES" | sed -n '1p')"
 END_DATE="$(printf '%s\n' "$RANGE_LINES" | sed -n '2p')"
 
 mkdir -p "$OUTPUT_DIR/raw" "$OUTPUT_DIR/raw/pr-details" "$OUTPUT_DIR/raw/issue-details" "$OUTPUT_DIR/docs"
+RUN_LOG="$OUTPUT_DIR/fetch.log"
+: > "$RUN_LOG"
+
+log_and_file() {
+  log "$*"
+  printf '%s\n' "$*" >> "$RUN_LOG"
+}
 
 curl_json() {
   local url="$1"
   local output_file="$2"
+  log_and_file "GET $url -> $output_file"
   curl -fsSL \
     -H "Authorization: Bearer ${TOKEN}" \
     -H "User-Agent: gitcode-release-note-generator/llm-workflow" \
@@ -165,6 +206,7 @@ curl_json() {
 curl_text() {
   local url="$1"
   local output_file="$2"
+  log_and_file "GET $url -> $output_file"
   curl -fsSL \
     -H "Authorization: Bearer ${TOKEN}" \
     -H "User-Agent: gitcode-release-note-generator/llm-workflow" \
@@ -181,16 +223,19 @@ fetch_first_text() {
   for url in "$@"; do
     if curl_text "$url" "$tmp_file" 2>/dev/null; then
       mv "$tmp_file" "$output_file"
+      log_and_file "Saved text file: $output_file"
       return 0
     fi
   done
   rm -f "$tmp_file"
+  warn "Unable to fetch any candidate URL for $output_file"
   return 1
 }
 
 fetch_paginated() {
   local base_url="$1"
   local output_file="$2"
+  log_and_file "Fetching paginated collection: $base_url"
   : > "$output_file"
   printf '[\n' >> "$output_file"
   local page=1
@@ -221,6 +266,7 @@ fetch_paginated() {
     page=$((page + 1))
   done
   printf '\n]\n' >> "$output_file"
+  log_and_file "Saved collection: $output_file"
 }
 
 extract_numbers() {
@@ -238,24 +284,45 @@ fetch_detail_set() {
   local index_file="$5"
   local number
   : > "$index_file"
+  log_and_file "Fetching ${kind} detail set from $numbers_file"
   while IFS= read -r number; do
     [[ -z "$number" ]] && continue
     local output_file="${detail_dir}/${kind}-${number}.json"
     if curl_json "${BASE_API}/${api_path}/${number}" "$output_file"; then
       printf '%s\t%s\n' "$number" "$output_file" >> "$index_file"
+      log_and_file "Saved ${kind} detail #${number}: $output_file"
     else
       rm -f "$output_file"
+      warn "Failed to fetch ${kind} detail #${number}"
     fi
   done < "$numbers_file"
 }
 
+require_file() {
+  local file_path="$1"
+  [[ -f "$file_path" ]] || fatal "Expected file was not created: $file_path"
+}
+
+require_nonempty_file() {
+  local file_path="$1"
+  [[ -s "$file_path" ]] || fatal "Expected non-empty file was not created: $file_path"
+}
+
 BASE_API="https://api.gitcode.com/api/v5/repos/${OWNER}/${REPO}"
+
+log_and_file "Starting fetch for ${OWNER}/${REPO} in range ${START_DATE}..${END_DATE}"
 
 fetch_paginated "${BASE_API}/issues?state=all" "$OUTPUT_DIR/raw/issues.json"
 fetch_paginated "${BASE_API}/pulls?state=all" "$OUTPUT_DIR/raw/pulls.json"
 curl_json "${BASE_API}" "$OUTPUT_DIR/raw/repo.json"
-curl_json "${BASE_API}/releases" "$OUTPUT_DIR/raw/releases.json" || true
-curl_json "${BASE_API}/tags" "$OUTPUT_DIR/raw/tags.json" || true
+if ! curl_json "${BASE_API}/releases" "$OUTPUT_DIR/raw/releases.json"; then
+  warn "Failed to fetch releases; creating empty fallback file."
+  printf '[]\n' > "$OUTPUT_DIR/raw/releases.json"
+fi
+if ! curl_json "${BASE_API}/tags" "$OUTPUT_DIR/raw/tags.json"; then
+  warn "Failed to fetch tags; creating empty fallback file."
+  printf '[]\n' > "$OUTPUT_DIR/raw/tags.json"
+fi
 curl_json "https://api.gitcode.com/api/v5/repos/${ROADMAP_OWNER}/${ROADMAP_REPO}/issues/${ROADMAP_NUMBER}" "$OUTPUT_DIR/raw/roadmap.json"
 
 extract_numbers "$OUTPUT_DIR/raw/issues.json" > "$OUTPUT_DIR/raw/issue-numbers.txt"
@@ -310,4 +377,16 @@ issue_details_index=$OUTPUT_DIR/raw/issue-details/index.txt
 pr_details_index=$OUTPUT_DIR/raw/pr-details/index.txt
 EOF
 
-echo "Fetched release context into: $OUTPUT_DIR"
+require_nonempty_file "$OUTPUT_DIR/context-meta.txt"
+require_nonempty_file "$OUTPUT_DIR/raw/detail-index.txt"
+require_file "$OUTPUT_DIR/raw/issues.json"
+require_file "$OUTPUT_DIR/raw/pulls.json"
+require_file "$OUTPUT_DIR/raw/repo.json"
+require_file "$OUTPUT_DIR/raw/roadmap.json"
+require_file "$OUTPUT_DIR/raw/issue-numbers.txt"
+require_file "$OUTPUT_DIR/raw/pr-numbers.txt"
+require_file "$OUTPUT_DIR/raw/issue-details/index.txt"
+require_file "$OUTPUT_DIR/raw/pr-details/index.txt"
+
+log_and_file "Fetch completed successfully."
+printf 'Fetched release context into: %s\n' "$OUTPUT_DIR"
