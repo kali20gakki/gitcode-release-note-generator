@@ -57,6 +57,112 @@ NOISY_CHANGE_KEYWORDS = [
     "ci", "流水线", "presmoke", "wip", "临时出包", "lint", "format",
     "clean", "cleancode", "secure compile", "safe",
 ]
+TEMPLATE_NOISE_PATTERNS = [
+    r"提交提案之前[^。！？\n]*[。！？]?",
+    r"在提交新问题之前[^。！？\n]*[。！？]?",
+    r"请先检索仓库内是否已有相同的提案[^。！？\n]*[。！？]?",
+    r"请确保您已经在社区中搜索过相关问题[^。！？\n]*[。！？]?",
+    r"漏洞报告[^。！？\n]*SQL 注入[^。！？\n]*",
+    r"API 令牌或密钥",
+]
+STRUCTURED_BODY_KEYS = [
+    "修改原因", "需求描述", "问题描述", "现象", "背景", "功能描述", "特性描述",
+    "变更内容", "影响范围", "解决方案", "方案描述", "详细描述", "目的",
+]
+PLACEHOLDER_VALUES = {
+    "", "无", "无。", "none", "n/a", "na", "todo", "待补充", "请补充",
+    "不涉及", "修改原因：", "问题描述：", "需求描述：",
+}
+REPO_POSITIONING_FALLBACKS = {
+    "msprof": "MindStudio Profiler 是面向 AI 训练与推理场景的性能采集与解析版本，主要服务于 CANN 平台及昇腾 AI 处理器性能分析用户。",
+    "msmonitor": "MindStudio Monitor 是面向昇腾 AI 集群场景的轻量性能采集与在线监控版本。",
+}
+TOPIC_RULES = [
+    {
+        "repo": "msprof",
+        "section": "feature",
+        "patterns": [r"\bgil\b", r"python gil", r"gil tracer"],
+        "title": "Python GIL 锁检测",
+        "description": "新增 GIL Tracer 采集与转换能力，可辅助定位 Python 线程锁竞争导致的性能瓶颈。",
+    },
+    {
+        "repo": "msprof",
+        "section": "feature",
+        "patterns": [r"hosttodevice", r"wait/record", r"memcpyasync", r"event 连线"],
+        "title": "wait/record 事件 HostToDevice 连线",
+        "description": "在 HostToDevice 视图中增加 wait/record event 与 `memcpyAsync` event 的关联连线，便于从 Host 侧调用追踪到 Device 侧执行。",
+    },
+    {
+        "repo": "msprof",
+        "section": "feature",
+        "patterns": [r"\ba5\b", r"aclgraph", r"\bbiu\b", r"\bubu?\b", r"\bccu\b", r"chip 2", r"chip 3", r"chip 4", r"timeline"],
+        "title": "A5 与新芯片场景解析增强",
+        "description": "增强 A5 代际继承硬件级 timeline 的 C 化适配，补齐 BIU/UB/CCU 等数据解析，并新增 chip 2/3/4 的 ACLGraph 场景解析支持。",
+    },
+    {
+        "repo": "msprof",
+        "section": "feature",
+        "patterns": [r"\bpmu\b"],
+        "title": "PMU 解析能力增强",
+        "description": "解除 PMU 解析限制，支持更多 PMU 指标与自定义 PMU 场景解析。",
+    },
+    {
+        "repo": "msprof",
+        "section": "change",
+        "patterns": [r"uninstall", r"install-path", r"整包安装", r"安装卸载", r"cann 目录", r"run 包安装", r"run 包卸载"],
+        "title": "run 包安装与卸载流程调整",
+        "description": "run 包适配安装到 CANN 整包目录，新增 `--uninstall` 卸载参数，并要求 `--install-path` 直接指向实际 `cann` 目录，方便与整包安装流程对齐。",
+    },
+    {
+        "repo": "msprof",
+        "section": "breaking",
+        "patterns": [r"run 包", r"run package", r"包名", r"文件名", r"os_arch", r"linux-<os_arch>"],
+        "title": "run 包命名统一",
+        "description": "**不兼容变更**：run 包文件名由 `Ascend-mindstudio-msprof_<version>_linux-<os_arch>.run` 调整为 `ascend-mindstudio-msprof_<version>_<os_arch>.run`，依赖旧文件名的自动化脚本需要同步适配。",
+    },
+    {
+        "repo": "msprof",
+        "section": "change",
+        "patterns": [r"task_time", r"kernel_name", r"block dim", r"block num", r"ub summary", r"表头"],
+        "title": "性能结果展示字段与表头调整",
+        "description": "`task_time` 支持展示 `kernel_name`，UB summary 删减冗余字段并调整表头，`block Dim` 重命名为 `block Num`。依赖旧字段名或旧表头的解析脚本需要同步更新。",
+    },
+    {
+        "repo": "msprof",
+        "section": "bugfix",
+        "patterns": [r"ut mock", r"assert"],
+        "title": "修复 UT Mock 范围错误及断言逻辑问题，降低开发自测阶段的误报与误判。",
+        "scope": "单元测试与开发自测场景",
+    },
+    {
+        "repo": "msprof",
+        "section": "bugfix",
+        "patterns": [r"ffts\+", r"shape 信息", r"关联失败"],
+        "title": "修复 `<<<>>>` 场景上报 shape 信息变化后 FFTS+ 数据关联失败的问题，恢复相关场景的正确关联。",
+        "scope": "FFTS+ 解析场景",
+    },
+    {
+        "repo": "msprof",
+        "section": "bugfix",
+        "patterns": [r"op_summary", r"task id", r"回绕"],
+        "title": "修复大数据量场景下 `op_summary` 因 task id 回绕导致的算子匹配错误问题。",
+        "scope": "大数据量 `op_summary` 解析场景",
+    },
+    {
+        "repo": "msprof",
+        "section": "bugfix",
+        "patterns": [r"\ba5\b", r"block_detail", r"lower_power", r"误过滤", r"打点数据"],
+        "title": "修复 A5 场景下 timeline C 化导出缺少 `block_detail`、`lower_power` 以及打点数据被误过滤等问题。",
+        "scope": "A5 数据采集与导出场景",
+    },
+    {
+        "repo": "msprof",
+        "section": "bugfix",
+        "patterns": [r"卸载脚本", r"残留", r"uninstall"],
+        "title": "修复 CANN 整包安装过程中 msprof 卸载脚本可能存在残留的问题。",
+        "scope": "CANN 整包安装/卸载场景",
+    },
+]
 
 
 def parse_repo_url(url: str) -> tuple[str, str]:
@@ -157,6 +263,10 @@ def fetch_pulls(owner: str, repo: str, token: str, state: str = "all") -> list[d
     return fetch_all_pages(f"/repos/{owner}/{repo}/pulls", token, {"state": state})
 
 
+def fetch_pull_detail(owner: str, repo: str, pull_number: str | int, token: str) -> dict:
+    return api_get(f"/repos/{owner}/{repo}/pulls/{pull_number}", token)
+
+
 def fetch_issue_detail(owner: str, repo: str, issue_number: str, token: str) -> dict:
     return api_get(f"/repos/{owner}/{repo}/issues/{issue_number}", token)
 
@@ -222,8 +332,17 @@ def normalize_text(text: str) -> str:
     return text.strip()
 
 
+def strip_template_noise(text: str) -> str:
+    cleaned = text or ""
+    for pattern in TEMPLATE_NOISE_PATTERNS:
+        cleaned = re.sub(pattern, " ", cleaned, flags=re.I)
+    cleaned = re.sub(r"\b(API|token|key)\b", " ", cleaned, flags=re.I)
+    cleaned = re.sub(r"\s+", " ", cleaned)
+    return cleaned.strip()
+
+
 def normalize_title(title: str) -> str:
-    title = normalize_text(title)
+    title = strip_template_noise(normalize_text(title))
     title = re.sub(r"^\[(feature|bug|bugfix|roadmap|wip|doc|docs)\]\s*[:：-]?\s*", "", title, flags=re.I)
     title = re.sub(r"^【[^】]+】", "", title)
     title = re.sub(r"^\[[^\]]+\]\s*", "", title)
@@ -244,8 +363,9 @@ def classify_item(item: dict) -> str:
     labels = get_labels(item)
     raw_title = item.get("title", "")
     title = normalize_title(raw_title)
-    body = normalize_text(item.get("body", ""))
+    body = extract_meaningful_text(item.get("body", ""))
     combined = f"{raw_title} {title} {body}".lower()
+    is_pr = is_pull_request(item)
 
     if contains_any(combined, ["roadmap"]) and item.get("html_url", "").endswith(f"/issues/{item.get('number')}"):
         return "roadmap"
@@ -253,7 +373,9 @@ def classify_item(item: dict) -> str:
         return "known_issue"
     if any(keyword in labels for keyword in BREAKING_LABEL_KEYWORDS) or contains_any(combined, BREAKING_TITLE_KEYWORDS):
         return "breaking"
-    if any(keyword in labels for keyword in BUG_LABEL_KEYWORDS) or contains_any(combined, BUG_TITLE_KEYWORDS):
+    if any(keyword in labels for keyword in BUG_LABEL_KEYWORDS):
+        return "bugfix"
+    if contains_any(f"{raw_title} {title}".lower(), BUG_TITLE_KEYWORDS):
         return "bugfix"
     if any(keyword in labels for keyword in DOC_LABEL_KEYWORDS) or contains_any(combined, DOC_TITLE_KEYWORDS):
         return "doc"
@@ -261,11 +383,13 @@ def classify_item(item: dict) -> str:
         return "feature"
     if any(keyword in labels for keyword in CHANGE_LABEL_KEYWORDS):
         return "change"
-    if contains_any(combined, FEATURE_TITLE_KEYWORDS):
+    if contains_any(f"{raw_title} {title}".lower(), FEATURE_TITLE_KEYWORDS):
         return "feature"
-    if contains_any(combined, CHANGE_TITLE_KEYWORDS) or contains_any(combined, NOISY_CHANGE_KEYWORDS):
+    if contains_any(f"{raw_title} {title}".lower(), CHANGE_TITLE_KEYWORDS) or contains_any(combined, NOISY_CHANGE_KEYWORDS):
         return "change"
-    if is_pull_request(item):
+    if is_pr and contains_any(combined, BUG_TITLE_KEYWORDS):
+        return "bugfix"
+    if is_pr:
         return "change"
     return "other"
 
@@ -336,6 +460,66 @@ def split_lines(text: str) -> list[str]:
     return [line.strip() for line in (text or "").splitlines() if line.strip()]
 
 
+def is_placeholder_value(text: str) -> bool:
+    normalized = normalize_text(text).strip().lower()
+    return normalized in PLACEHOLDER_VALUES
+
+
+def extract_structured_body_values(text: str) -> list[str]:
+    values: list[str] = []
+    lines = split_lines(text)
+    current_key = ""
+    buffer: list[str] = []
+
+    def flush() -> None:
+        nonlocal current_key, buffer
+        if current_key and buffer:
+            value = normalize_text(" ".join(buffer))
+            value = strip_template_noise(value)
+            if value and not is_placeholder_value(value):
+                values.append(value)
+        current_key = ""
+        buffer = []
+
+    for line in lines:
+        stripped = normalize_text(line)
+        matched = False
+        for key in STRUCTURED_BODY_KEYS:
+            if stripped.startswith(f"{key}:") or stripped.startswith(f"{key}："):
+                flush()
+                current_key = key
+                value = stripped[len(key) + 1:].strip()
+                if value and not is_placeholder_value(value):
+                    buffer.append(value)
+                matched = True
+                break
+        if matched:
+            continue
+        if current_key:
+            if any(stripped.startswith(f"{key}:") or stripped.startswith(f"{key}：") for key in STRUCTURED_BODY_KEYS):
+                flush()
+            elif not is_placeholder_value(stripped):
+                buffer.append(stripped)
+    flush()
+    return dedupe_keep_order(values)
+
+
+def extract_meaningful_text(text: str) -> str:
+    structured_values = extract_structured_body_values(text)
+    if structured_values:
+        return "\n".join(structured_values)
+
+    cleaned_lines: list[str] = []
+    for line in split_lines(text):
+        line_text = strip_template_noise(normalize_text(line))
+        if not line_text or is_placeholder_value(line_text):
+            continue
+        if len(line_text) < 6:
+            continue
+        cleaned_lines.append(line_text)
+    return "\n".join(dedupe_keep_order(cleaned_lines))
+
+
 def extract_bullets(text: str) -> list[str]:
     bullets: list[str] = []
     for line in split_lines(text):
@@ -384,8 +568,15 @@ def infer_release_meta(version: str, releases: list[dict], tags: list[dict], rel
 
 
 def infer_positioning(repo_data: dict, readme_text: str, product_name: str) -> str:
+    repo_name = str(repo_data.get("path") or repo_data.get("name") or "").lower()
+    if repo_name in REPO_POSITIONING_FALLBACKS:
+        return REPO_POSITIONING_FALLBACKS[repo_name]
+
     description = normalize_text(repo_data.get("description", ""))
     if description:
+        description = description.replace(f"{product_name}（", "（").replace(f"{product_name}(", "(")
+        description = description.replace(f"{product_name}是", "是")
+        description = description.replace(f"{product_name} ", "")
         return f"{product_name} 是面向 {description} 的版本。"
 
     readme_lines = split_lines(readme_text)
@@ -396,11 +587,7 @@ def infer_positioning(repo_data: dict, readme_text: str, product_name: str) -> s
         if 12 <= len(line_text) <= 80:
             return f"{product_name} 是面向 {line_text} 的版本。"
 
-    fallback_map = {
-        "MindStudio Profiler": "MindStudio Profiler 是面向 AI 训练与推理场景的性能采集与解析版本。",
-        "MindStudio Monitor": "MindStudio Monitor 是面向昇腾 AI 场景的轻量性能采集与监控版本。",
-    }
-    return fallback_map.get(product_name, f"{product_name} 是当前仓库对应版本。")
+    return f"{product_name} 是当前仓库对应版本。"
 
 
 def infer_support_matrix(readme_text: str, docs_text: str) -> list[tuple[str, str, str]]:
@@ -497,7 +684,7 @@ def combined_links(item: dict, related_issues: list[dict]) -> str:
 
 
 def choose_primary_sentence(item: dict) -> str:
-    body = item.get("body", "")
+    body = extract_meaningful_text(item.get("body", ""))
     bullets = extract_bullets(body)
     if bullets:
         return bullets[0]
@@ -510,7 +697,11 @@ def choose_primary_sentence(item: dict) -> str:
 
 def describe_feature(item: dict, related_issues: list[dict]) -> str:
     title = normalize_title(item.get("title", ""))
-    issue_titles = [normalize_title(issue.get("title", "")) for issue in related_issues]
+    issue_titles = [
+        normalize_title(issue.get("title", ""))
+        for issue in related_issues
+        if is_meaningful_title(issue.get("title", ""))
+    ]
     base = choose_primary_sentence(item)
     if base:
         return trim_sentence(base.replace(title, "").strip(" ：:-"), 120) or trim_sentence(base, 120)
@@ -544,7 +735,11 @@ def describe_breaking_change(item: dict) -> str:
 def describe_bugfix(item: dict, related_issues: list[dict]) -> tuple[str, str]:
     title = normalize_title(item.get("title", ""))
     body_sentence = choose_primary_sentence(item)
-    issue_titles = [normalize_title(issue.get("title", "")) for issue in related_issues]
+    issue_titles = [
+        normalize_title(issue.get("title", ""))
+        for issue in related_issues
+        if is_meaningful_title(issue.get("title", ""))
+    ]
 
     if body_sentence:
         description = trim_sentence(body_sentence, 120)
@@ -564,6 +759,145 @@ def describe_bugfix(item: dict, related_issues: list[dict]) -> tuple[str, str]:
     else:
         scope = "相关功能使用场景"
     return description, scope
+
+
+def is_meaningful_title(title: str) -> bool:
+    normalized = normalize_title(title)
+    if not normalized:
+        return False
+    if contains_any(normalized.lower(), ["api 令牌或密钥", "漏洞报告", "在提交新问题之前", "提交提案之前"]):
+        return False
+    return len(normalized) >= 6
+
+
+def enrich_pull_bodies(owner: str, repo: str, token: str, pulls: list[dict]) -> list[dict]:
+    enriched: list[dict] = []
+    for pull in pulls:
+        pull_copy = dict(pull)
+        body = extract_meaningful_text(pull_copy.get("body", ""))
+        needs_detail = not body or is_placeholder_value(body) or body.startswith("修改原因")
+        if needs_detail:
+            try:
+                detail = fetch_pull_detail(owner, repo, pull_copy.get("number", ""), token)
+                merged = dict(pull_copy)
+                merged.update(detail if isinstance(detail, dict) else {})
+                pull_copy = merged
+            except Exception as exc:
+                print(f"  获取 PR !{pull_copy.get('number')} 详情失败: {exc}")
+        enriched.append(pull_copy)
+    return enriched
+
+
+def dedupe_release_items(items: list[dict], issue_index: dict[str, list[dict]]) -> list[dict]:
+    deduped: list[dict] = []
+    seen_keys: set[str] = set()
+    pr_related_issue_numbers: set[str] = set()
+
+    for item in items:
+        if is_pull_request(item):
+            for issue in find_related_issues(item, issue_index):
+                pr_related_issue_numbers.add(str(issue.get("number")))
+
+    sorted_items = sorted(items, key=lambda item: (0 if is_pull_request(item) else 1, item.get("created_at", ""), item.get("number", 0)))
+    for item in sorted_items:
+        if not is_pull_request(item) and str(item.get("number")) in pr_related_issue_numbers:
+            continue
+        key = issue_pr_key(item.get("title", ""))
+        if key and key in seen_keys:
+            continue
+        if key:
+            seen_keys.add(key)
+        deduped.append(item)
+    return deduped
+
+
+def match_topic_rule(repo: str, section: str, item: dict) -> dict | None:
+    text = " ".join(
+        [
+            normalize_title(item.get("title", "")),
+            extract_meaningful_text(item.get("body", "")),
+        ]
+    ).lower()
+    for rule in TOPIC_RULES:
+        if rule["repo"] != repo or rule["section"] != section:
+            continue
+        if any(re.search(pattern, text, re.I) for pattern in rule["patterns"]):
+            return rule
+    return None
+
+
+def make_group_key(repo: str, section: str, item: dict) -> str:
+    rule = match_topic_rule(repo, section, item)
+    if rule:
+        return f"{repo}:{section}:{rule['title']}"
+    return f"{repo}:{section}:{issue_pr_key(item.get('title', '')) or item.get('number', '')}"
+
+
+def merge_links_for_items(items: list[dict], issue_index: dict[str, list[dict]]) -> str:
+    links: list[str] = []
+    for item in items:
+        for part in combined_links(item, find_related_issues(item, issue_index)).split("、"):
+            if part and part not in links:
+                links.append(part)
+    return "、".join(links)
+
+
+def summarize_group_description(repo: str, section: str, items: list[dict], issue_index: dict[str, list[dict]]) -> str:
+    rule = match_topic_rule(repo, section, items[0])
+    if rule and section in {"feature", "change", "breaking"}:
+        return rule["description"]
+    if rule and section == "bugfix":
+        return rule["title"]
+
+    primary = items[-1]
+    if section == "feature":
+        return describe_feature(primary, find_related_issues(primary, issue_index))
+    if section in {"change", "breaking"}:
+        return describe_breaking_change(primary) if section == "breaking" else describe_change(primary)
+    description, _ = describe_bugfix(primary, find_related_issues(primary, issue_index))
+    return description
+
+
+def summarize_group_scope(repo: str, items: list[dict], issue_index: dict[str, list[dict]]) -> str:
+    rule = match_topic_rule(repo, "bugfix", items[0])
+    if rule and rule.get("scope"):
+        return rule["scope"]
+    _, scope = describe_bugfix(items[-1], find_related_issues(items[-1], issue_index))
+    return scope
+
+
+def summarize_group_title(repo: str, section: str, items: list[dict], issue_index: dict[str, list[dict]]) -> str:
+    rule = match_topic_rule(repo, section, items[0])
+    if rule:
+        return rule["title"]
+
+    titles = [normalize_title(item.get("title", "")) for item in items if normalize_title(item.get("title", ""))]
+    if section == "bugfix":
+        return summarize_group_description(repo, section, items, issue_index)
+    if titles:
+        return titles[-1]
+    return "未命名条目"
+
+
+def build_release_groups(repo: str, section: str, items: list[dict], issue_index: dict[str, list[dict]]) -> list[dict]:
+    grouped: dict[str, list[dict]] = defaultdict(list)
+    for item in items:
+        grouped[make_group_key(repo, section, item)].append(item)
+
+    groups: list[dict] = []
+    for key, group_items in grouped.items():
+        ordered_items = sort_items(group_items)
+        groups.append(
+            {
+                "key": key,
+                "title": summarize_group_title(repo, section, ordered_items, issue_index),
+                "description": summarize_group_description(repo, section, ordered_items, issue_index),
+                "scope": summarize_group_scope(repo, ordered_items, issue_index) if section == "bugfix" else "",
+                "links": merge_links_for_items(ordered_items, issue_index),
+                "items": ordered_items,
+            }
+        )
+    return sorted(groups, key=lambda group: (group["items"][0].get("created_at", ""), group["title"]))
 
 
 def extract_highlights(
@@ -620,6 +954,7 @@ def generate_release_note(
     version: str | None = None,
 ) -> str:
     owner, repo = parse_repo_url(repo_url)
+    repo_key = repo.lower()
     product_name = guess_product_name(repo_url, repo)
     start_date, end_date = parse_time_range(time_range)
     version = version or guess_version(output_file, time_range)
@@ -628,6 +963,7 @@ def generate_release_note(
     repo_data = fetch_repo(owner, repo, token)
     issues = fetch_issues(owner, repo, token)
     pulls = fetch_pulls(owner, repo, token)
+    pulls = enrich_pull_bodies(owner, repo, token, pulls)
 
     filtered_issues = filter_by_time(issues, start_date, end_date)
     filtered_pulls = filter_by_time(pulls, start_date, end_date)
@@ -715,6 +1051,10 @@ def generate_release_note(
             changes.append(issue)
 
     issue_index = build_issue_index(pure_issues)
+    features = dedupe_release_items(features, issue_index)
+    changes = dedupe_release_items(changes, issue_index)
+    bugfixes = dedupe_release_items(bugfixes, issue_index)
+    breaking_changes = dedupe_release_items(breaking_changes, issue_index)
     contributors = extract_contributors(sort_items(filtered_pulls))
     support_rows = infer_support_matrix(readme_text, docs_text)
     highlights = extract_highlights(roadmap_title, roadmap_body, sort_items(features), sort_items(changes))
@@ -755,14 +1095,14 @@ def generate_release_note(
     lines.append("## 3. 新增特性")
     lines.append("")
     feature_items = sort_items(features)
-    if feature_items:
+    feature_groups = build_release_groups(repo_key, "feature", feature_items, issue_index)
+    if feature_groups:
         lines.append("| 序号 | 特性名称 | 特性描述 | 关联Issue/PR |")
         lines.append("| ---- | ---- | ---- | ---- |")
-        for index, item in enumerate(feature_items, 1):
-            title = clean_cell(normalize_title(item.get("title", "")))
-            related_issues = find_related_issues(item, issue_index)
-            description = clean_cell(describe_feature(item, related_issues))
-            lines.append(f"| {index} | {title} | {description} | {combined_links(item, related_issues)} |")
+        for index, group in enumerate(feature_groups, 1):
+            lines.append(
+                f"| {index} | {clean_cell(group['title'])} | {clean_cell(group['description'])} | {group['links']} |"
+            )
     else:
         lines.append("不涉及。")
     lines.append("")
@@ -770,14 +1110,15 @@ def generate_release_note(
     lines.append("## 4. 变更说明")
     lines.append("")
     change_items = sort_items(breaking_changes) + sort_items(changes)
-    if change_items:
+    change_groups = build_release_groups(repo_key, "breaking", sort_items(breaking_changes), issue_index)
+    change_groups.extend(build_release_groups(repo_key, "change", sort_items(changes), issue_index))
+    if change_groups:
         lines.append("| 序号 | 变更内容 | 变更影响 | 关联Issue/PR |")
         lines.append("| ---- | ---- | ---- | ---- |")
-        for index, item in enumerate(change_items, 1):
-            title = clean_cell(normalize_title(item.get("title", "")))
-            impact = describe_breaking_change(item) if item in breaking_changes else describe_change(item)
-            related_issues = find_related_issues(item, issue_index)
-            lines.append(f"| {index} | {title} | {clean_cell(impact)} | {combined_links(item, related_issues)} |")
+        for index, group in enumerate(change_groups, 1):
+            lines.append(
+                f"| {index} | {clean_cell(group['title'])} | {clean_cell(group['description'])} | {group['links']} |"
+            )
     else:
         lines.append("不涉及。")
     lines.append("")
@@ -785,15 +1126,12 @@ def generate_release_note(
     lines.append("## 5. 修复缺陷")
     lines.append("")
     bugfix_items = sort_items(bugfixes)
-    if bugfix_items:
+    bugfix_groups = build_release_groups(repo_key, "bugfix", bugfix_items, issue_index)
+    if bugfix_groups:
         lines.append("| 序号 | Issue链接 | 问题描述 | 影响范围 |")
         lines.append("| ---- | ---- | ---- | ---- |")
-        for index, item in enumerate(bugfix_items, 1):
-            related_issues = find_related_issues(item, issue_index)
-            description, scope = describe_bugfix(item, related_issues)
-            lines.append(
-                f"| {index} | {combined_links(item, related_issues)} | {clean_cell(description)} | {clean_cell(scope)} |"
-            )
+        for index, group in enumerate(bugfix_groups, 1):
+            lines.append(f"| {index} | {group['links']} | {clean_cell(group['title'])} | {clean_cell(group['scope'])} |")
     else:
         lines.append("不涉及。")
     lines.append("")

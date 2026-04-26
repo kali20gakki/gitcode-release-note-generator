@@ -47,6 +47,7 @@ python3 scripts/generate_release_note.py \
 - 从 roadmap、README、安装文档中提取版本亮点与产品定位
 - 自动补齐配套关系中的常见字段，如操作系统、CANN、Python、PyTorch、三方依赖
 - 为新增特性、变更说明、修复缺陷生成用户视角的描述
+- 对同主题的多条 PR/Issue 做聚合归并，尽量输出接近正式版本公告的条目级摘要
 - 通过 release/tag 信息补充发布日期与版本标签
 
 仍建议人工重点复核以下内容：
