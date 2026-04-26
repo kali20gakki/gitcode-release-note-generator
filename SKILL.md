@@ -42,13 +42,16 @@ description: 基于 GitCode 仓库真实数据生成高质量 Release Note。优
 兼容性说明：
 
 - 脚本使用 `#!/usr/bin/env bash`
-- 已避免依赖 `mapfile`、GNU `date` 等兼容性较差的能力
-- 在 macOS 自带 Bash 3.2 环境中也应可运行
+- bash 入口会转调 Python 抓取器 `scripts/fetch_release_context.py`
+- Python 抓取器仅依赖标准库，不依赖 `jq`、`mapfile`、GNU `date` 等兼容性较差的能力
+- 在 macOS 自带 Bash 3.2 + `python3` 环境中也应可运行
 - 如果用户手动以 `zsh scripts/fetch_release_context.sh` 方式执行，建议改为 `bash scripts/fetch_release_context.sh` 或直接 `./scripts/fetch_release_context.sh`
 - 脚本会输出进度日志，并在产物缺失时直接报错，便于定位抓取失败阶段
 
 抓取结果会落在指定目录下，包含：
 
+- `raw/issues.all.json`
+- `raw/pulls.all.json`
 - `raw/issues.json`
 - `raw/pulls.json`
 - `raw/roadmap.json`
@@ -57,17 +60,17 @@ description: 基于 GitCode 仓库真实数据生成高质量 Release Note。优
 - `raw/tags.json`
 - `raw/issue-numbers.txt`
 - `raw/pr-numbers.txt`
+- `raw/roadmap-linked-issue-numbers.txt`
+- `raw/roadmap-linked-pr-numbers.txt`
 - `raw/issue-details/issue-<number>.json`
 - `raw/pr-details/pr-<number>.json`
 - `raw/issue-details/index.txt`
 - `raw/pr-details/index.txt`
 - `raw/detail-index.txt`
+- `raw/detail-index.json`
 - `fetch.log`
-- `docs/README.md`
-- `docs/install.md`
-- `docs/quick_start.md`
-- `docs/msprof_parsing_instruct.md`
-- `docs/msmonitor_parsing_instruct.md`
+- `summary.json`
+- `docs/*.md`（按通用候选路径抓取，例如 `README.md`、`docs__README.md`、`docs__install.md`、`docs__quick_start.md`、`docs__<repo>_parsing_instruct.md` 等）
 - `context-meta.txt`
 
 ### 3. 由 Agent 总结生成 Markdown
